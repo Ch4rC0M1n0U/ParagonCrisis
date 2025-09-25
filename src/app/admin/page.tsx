@@ -82,6 +82,21 @@ function formatRelativeTime(date: Date) {
   return formatter.format(Math.round(duration), "year");
 }
 
+function formatDuration(durationMs: number) {
+  const totalSeconds = Math.round(durationMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours} h ${minutes} min`;
+  }
+  if (minutes > 0) {
+    return seconds > 0 ? `${minutes} min ${seconds} s` : `${minutes} min`;
+  }
+  return `${seconds} s`;
+}
+
 function severityBadge(severity: string) {
   switch (severity) {
     case "CRITICAL":
