@@ -50,17 +50,13 @@ const defaultGradient: CSSProperties = {
 export function AdminShell({ active, children, gradientStyle }: AdminShellProps) {
   return (
     <div className="min-h-screen bg-base-100" style={gradientStyle ?? defaultGradient}>
-      <div className="mx-auto flex w-full max-w-7xl gap-8 px-6 pb-16 pt-10 xl:px-10">
+  <div className="mx-auto flex w-full max-w-7xl md:max-w-[85vw] gap-8 px-6 pb-16 pt-10 xl:px-10">
         <aside className="hidden w-64 shrink-0 flex-col rounded-3xl border border-base-200/80 bg-white/80 p-6 shadow-sm backdrop-blur lg:flex">
           <div className="mb-8 space-y-3">
             <div>
               <span className="text-xs font-semibold uppercase tracking-[0.35em] text-primary/70">ParagonCrisis</span>
               <p className="text-lg font-semibold text-neutral">Command Center</p>
               <p className="text-xs text-base-content/60">Monitorer, piloter et analyser vos rooms de crise.</p>
-            </div>
-            <div className="rounded-2xl border border-base-200/80 bg-base-100/80 p-4 text-sm text-base-content/70">
-              <p className="font-semibold text-neutral">Mode démonstration</p>
-              <p>Accès libre aux outils formateur pour explorer la plateforme.</p>
             </div>
           </div>
           <nav className="flex flex-col gap-2 text-sm">

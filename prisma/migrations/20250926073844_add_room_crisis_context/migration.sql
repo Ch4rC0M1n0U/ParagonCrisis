@@ -1,0 +1,10 @@
+-- AlterTable
+ALTER TABLE "Room" ADD COLUMN "addressLine" TEXT;
+ALTER TABLE "Room" ADD COLUMN "city" TEXT;
+ALTER TABLE "Room" ADD COLUMN "country" TEXT DEFAULT 'Belgique';
+ALTER TABLE "Room" ADD COLUMN "crisisType" TEXT;
+ALTER TABLE "Room" ADD COLUMN "incidentAt" DATETIME;
+ALTER TABLE "Room" ADD COLUMN "latitude" REAL;
+ALTER TABLE "Room" ADD COLUMN "locationName" TEXT;
+ALTER TABLE "Room" ADD COLUMN "longitude" REAL;
+ALTER TABLE "Room" ADD COLUMN "postalCode" TEXT;

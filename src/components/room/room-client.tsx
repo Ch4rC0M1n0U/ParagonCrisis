@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { MetricCard } from "@/components/ui/metric-card";
+import { RoomMetadataEditor } from "@/components/room/room-metadata-editor";
 import { io, type ManagerOptions, type Socket, type SocketOptions } from "socket.io-client";
 import type {
   ClientToServerEvents,
@@ -36,15 +37,29 @@ interface EventSnapshot {
   ackAt: string | null;
 }
 
+interface CrisisContextSnapshot {
+  crisisType: string | null;
+  incidentAt: string | null;
+  locationName: string | null;
+  addressLine: string | null;
+  postalCode: string | null;
+  city: string | null;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  contextNotes: string | null;
+}
+
 export interface RoomClientProps {
   roomCode: string;
   displayName: string;
   isAdmin: boolean;
-  roomTitle: string;
+  roomTitle: string | null;
   roomExists: boolean;
   initialParticipants: ParticipantSnapshot[];
   initialMessages: MessageSnapshot[];
   initialEvents: EventSnapshot[];
+  crisisContext: CrisisContextSnapshot | null;
 }
 
 type ConnectionState = "connecting" | "connected" | "error";
@@ -55,7 +70,6 @@ type Notice = {
   message: string;
   createdAt: number;
 };
-
 function formatDate(iso: string) {
   const formatter = new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
@@ -90,6 +104,42 @@ function formatRelative(iso: string) {
   }
 
   return rtf.format(Math.round(duration), "year");
+}
+
+function formatIncidentDateTime(iso: string | null) {
+  if (!iso) {
+    return "Date et heure non renseignées";
+  }
+  const date = new Date(iso);
+  const formatter = new Intl.DateTimeFormat("fr-BE", {
+    dateStyle: "full",
+    timeStyle: "short",
+    timeZone: "Europe/Brussels",
+  });
+  return formatter.format(date);
+}
+
+function humaniseCrisisType(type: string | null) {
+  if (!type) {
+    return "Type de crise non défini";
+  }
+  const cleaned = type.replace(/[_-]+/g, " ").toLowerCase();
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+function buildOsmEmbedUrl(lat: number, lon: number) {
+  const precision = (value: number) => value.toFixed(5);
+  const radius = 0.01; // ~1 km
+  const west = precision(lon - radius);
+  const south = precision(lat - radius);
+  const east = precision(lon + radius);
+  const north = precision(lat + radius);
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${west}%2C${south}%2C${east}%2C${north}&layer=mapnik&marker=${precision(lat)}%2C${precision(lon)}`;
+}
+
+function buildOsmPageUrl(lat: number, lon: number) {
+  const precision = (value: number) => value.toFixed(5);
+  return `https://www.openstreetmap.org/?mlat=${precision(lat)}&mlon=${precision(lon)}#map=15/${precision(lat)}/${precision(lon)}`;
 }
 
 function useBeep() {
@@ -145,12 +195,37 @@ const severityMap: Record<string, string> = {
   HIGH: "badge-warning",
   CRITICAL: "badge-error",
 };
-
 function normaliseParticipant(participant: ParticipantSnapshot) {
   return {
     ...participant,
     role: participant.role || (participant.isAdmin ? "formateur" : "participant"),
   } satisfies ParticipantSnapshot;
+}
+
+function normaliseCrisisContext(context: CrisisContextSnapshot | null): CrisisContextSnapshot | null {
+  if (!context) {
+    return null;
+  }
+
+  const trimmed: CrisisContextSnapshot = {
+    ...context,
+    contextNotes: context.contextNotes && context.contextNotes.trim().length > 0 ? context.contextNotes.trim() : null,
+  };
+
+  const hasData = Object.values(trimmed).some((value) => {
+    if (value === null) {
+      return false;
+    }
+    if (typeof value === "number") {
+      return Number.isFinite(value);
+    }
+    if (typeof value === "string") {
+      return value.trim().length > 0;
+    }
+    return true;
+  });
+
+  return hasData ? trimmed : null;
 }
 
 export function RoomClient(props: RoomClientProps) {
@@ -163,6 +238,7 @@ export function RoomClient(props: RoomClientProps) {
     initialParticipants,
     initialMessages,
     initialEvents,
+    crisisContext,
   } = props;
 
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
@@ -179,6 +255,10 @@ export function RoomClient(props: RoomClientProps) {
     [...initialEvents].sort(
       (a, b) => new Date(b.triggeredAt).getTime() - new Date(a.triggeredAt).getTime(),
     ),
+  );
+  const [currentTitle, setCurrentTitle] = useState<string | null>(roomTitle ?? null);
+  const [currentContext, setCurrentContext] = useState<CrisisContextSnapshot | null>(
+    normaliseCrisisContext(crisisContext),
   );
   const [chatInput, setChatInput] = useState("");
   const [eventTitle, setEventTitle] = useState("");
@@ -207,6 +287,14 @@ export function RoomClient(props: RoomClientProps) {
     }
     chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
   }, [messages.length]);
+
+  useEffect(() => {
+    setCurrentTitle(roomTitle ?? null);
+  }, [roomTitle]);
+
+  useEffect(() => {
+    setCurrentContext(normaliseCrisisContext(crisisContext));
+  }, [crisisContext]);
 
   const pushNotice = useCallback((notice: Omit<Notice, "id" | "createdAt">) => {
     setNotices((current) => {
@@ -271,15 +359,18 @@ export function RoomClient(props: RoomClientProps) {
         }
         for (const participant of payload.participants) {
           const existing = merged.get(participant.id);
-          merged.set(participant.id, normaliseParticipant({
-            id: participant.id,
-            displayName: participant.displayName,
-            role: participant.role,
-            isAdmin: participant.isAdmin,
-            isConnected: participant.isConnected ?? existing?.isConnected ?? true,
-            joinedAt: participant.joinedAt ?? existing?.joinedAt ?? null,
-            leftAt: participant.leftAt ?? existing?.leftAt ?? null,
-          }));
+          merged.set(
+            participant.id,
+            normaliseParticipant({
+              id: participant.id,
+              displayName: participant.displayName,
+              role: participant.role,
+              isAdmin: participant.isAdmin,
+              isConnected: participant.isConnected ?? existing?.isConnected ?? true,
+              joinedAt: participant.joinedAt ?? existing?.joinedAt ?? null,
+              leftAt: participant.leftAt ?? existing?.leftAt ?? null,
+            }),
+          );
         }
         return Array.from(merged.values());
       });
@@ -330,8 +421,23 @@ export function RoomClient(props: RoomClientProps) {
       await triggerBeep();
     });
 
+    socket.on("room:context:update", (payload) => {
+      if (payload.code.toUpperCase() !== roomCode.toUpperCase()) {
+        return;
+      }
+      setCurrentTitle(payload.title ?? null);
+      setCurrentContext(normaliseCrisisContext(payload.crisisContext));
+      if (!isAdmin) {
+        pushNotice({
+          variant: "info",
+          message: "Le briefing formateur vient d’être actualisé. Consultez les nouvelles informations de contexte.",
+        });
+      }
+    });
+
     return () => {
       socket.emit("room:leave", { roomCode });
+      socket.off("room:context:update");
       socket.disconnect();
       socketRef.current = null;
     };
@@ -416,10 +522,162 @@ export function RoomClient(props: RoomClientProps) {
     },
   ];
 
+  const latitude = typeof currentContext?.latitude === "number" ? currentContext.latitude : null;
+  const longitude = typeof currentContext?.longitude === "number" ? currentContext.longitude : null;
+  const hasCoordinates = latitude !== null && longitude !== null;
+  const crisisTypeDisplay = humaniseCrisisType(currentContext?.crisisType ?? null);
+  const incidentDateDisplay = formatIncidentDateTime(currentContext?.incidentAt ?? null);
+  const osmEmbedUrl = hasCoordinates ? buildOsmEmbedUrl(latitude, longitude) : null;
+  const osmPageUrl = hasCoordinates ? buildOsmPageUrl(latitude, longitude) : null;
+  const isBelgium = (currentContext?.country ?? "Belgique").toLowerCase().includes("belg");
+  const locationLines = [
+    currentContext?.locationName ?? null,
+    [
+      currentContext?.addressLine ?? null,
+      [currentContext?.postalCode, currentContext?.city].filter(Boolean).join(" "),
+    ]
+      .filter((value) => value && value.trim().length > 0)
+      .join(", ") || null,
+    currentContext?.country ?? null,
+  ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+  const coordinatesLabel = hasCoordinates
+    ? `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+    : "Coordonnées non définies";
+  const contextNotes = currentContext?.contextNotes ?? null;
+  const roomTitleDisplay = currentTitle && currentTitle.trim().length > 0 ? currentTitle : `Salle ${roomCode}`;
+
   return (
     <div className="min-h-screen bg-base-100" style={heroBackground}>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-12">
+  <div className="mx-auto flex w-full max-w-6xl md:max-w-[85vw] flex-col gap-10 px-6 py-12">
         <header className="space-y-6">
+          {isAdmin ? (
+            <section className="rounded-3xl border border-primary/30 bg-primary/10 p-6 shadow-sm backdrop-blur">
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.35em] text-primary/80">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/15 px-4 py-1">
+                        Briefing formateur
+                      </span>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-base-200/70 bg-base-100/80 px-4 py-1 text-neutral">
+                        Cas {roomCode}
+                      </span>
+                    </div>
+                    <h2 className="text-2xl font-semibold text-neutral">Synthèse du cas en cours</h2>
+                    <p className="text-sm leading-relaxed text-base-content/70">
+                      Partagez ces informations avec les participants avant de lancer la simulation. Les données sont
+                      limitées à des incidents situés en Belgique pour respecter le cadre de formation.
+                    </p>
+                  </div>
+
+                  {currentContext ? (
+                    <div className="space-y-4">
+                      <dl className="grid gap-3 text-sm text-base-content/80 sm:grid-cols-2">
+                        <div>
+                          <dt className="font-semibold text-neutral">Type de crise</dt>
+                          <dd>{crisisTypeDisplay}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-semibold text-neutral">Date et heure des faits</dt>
+                          <dd>{incidentDateDisplay}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-semibold text-neutral">Localisation</dt>
+                          <dd className="space-y-1">
+                            {locationLines.length > 0 ? (
+                              locationLines.map((line) => (
+                                <div key={line}>{line}</div>
+                              ))
+                            ) : (
+                              <span className="text-base-content/60">Adresse non renseignée</span>
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="font-semibold text-neutral">Coordonnées</dt>
+                          <dd>{coordinatesLabel}</dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <dt className="font-semibold text-neutral">Renseignement complémentaire</dt>
+                          <dd className="space-y-1">
+                            {contextNotes ? (
+                              contextNotes.split(/\n+/).map((paragraph, index) => (
+                                <p key={index} className="text-sm leading-relaxed text-base-content/80">
+                                  {paragraph}
+                                </p>
+                              ))
+                            ) : (
+                              <span className="text-base-content/60">Aucun renseignement ajouté</span>
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                      {!isBelgium ? (
+                        <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
+                          Vérifiez la localisation : elle semble située hors de Belgique.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-base-200/70 bg-base-100/80 px-4 py-3 text-sm text-base-content/70">
+                      Complétez les métadonnées de la salle (type de crise, localisation, horaire) pour afficher un
+                      briefing automatisé.
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="relative overflow-hidden rounded-3xl border border-base-200/80 bg-base-100/90 shadow-inner">
+                    {hasCoordinates && osmEmbedUrl ? (
+                      <>
+                        <iframe
+                          title={`Carte OpenStreetMap pour ${roomCode}`}
+                          src={osmEmbedUrl}
+                          className="h-64 w-full border-0"
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                        />
+                        <div className="border-t border-base-200/60 bg-base-100/90 px-4 py-3 text-right">
+                          {osmPageUrl ? (
+                            <a
+                              href={osmPageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="link link-primary text-sm"
+                            >
+                              Ouvrir dans OpenStreetMap ↗
+                            </a>
+                          ) : null}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex h-full min-h-[256px] items-center justify-center px-6 text-center text-sm text-base-content/60">
+                        Ajoutez des coordonnées GPS (lat., long.) pour afficher une carte OpenStreetMap interactive.
+                      </div>
+                    )}
+                  </div>
+                  {currentContext?.country && isBelgium ? (
+                    <span className="text-xs text-base-content/60">
+                      Zone géographique : {currentContext.country}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {isAdmin ? (
+            <RoomMetadataEditor
+              roomCode={roomCode}
+              initialTitle={currentTitle}
+              initialContext={currentContext}
+              onUpdated={({ title, crisisContext: context }) => {
+                setCurrentTitle(title ?? null);
+                setCurrentContext(normaliseCrisisContext(context));
+              }}
+            />
+          ) : null}
+
           <div className="relative overflow-hidden rounded-3xl border border-base-200/70 bg-white/90 p-8 shadow-sm backdrop-blur">
             <div className="pointer-events-none absolute -top-16 right-10 h-40 w-40 rounded-full bg-primary/20 blur-3xl" aria-hidden />
             <div className="pointer-events-none absolute -bottom-16 left-10 h-44 w-44 rounded-full bg-secondary/15 blur-3xl" aria-hidden />
@@ -429,12 +687,24 @@ export function RoomClient(props: RoomClientProps) {
                   Salle {roomCode}
                 </span>
                 <div className="space-y-3">
-                  <h1 className="text-3xl font-semibold text-neutral lg:text-4xl">{roomTitle}</h1>
+                  <h1 className="text-3xl font-semibold text-neutral lg:text-4xl">{roomTitleDisplay}</h1>
                   <p className="text-sm text-base-content/70">
                     Connecté en tant que <span className="font-medium text-neutral">{displayName}</span>
                     {isAdmin ? " (formateur)" : ""}. Toutes les actions sont orchestrées via Socket.IO et historisées dans Prisma pour un débrief complet.
                   </p>
                 </div>
+                {contextNotes ? (
+                  <div className="space-y-2 rounded-2xl border border-base-200/60 bg-base-100/80 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/60">
+                      Renseignement complémentaire
+                    </p>
+                    <div className="space-y-2 text-sm leading-relaxed text-base-content/80">
+                      {contextNotes.split(/\n+/).map((paragraph, index) => (
+                        <p key={index}>{paragraph}</p>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-3">
                   <span className={`badge ${connectionBadge(connectionState)} gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider`}>
                     <span className="h-2 w-2 rounded-full bg-current" aria-hidden />

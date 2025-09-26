@@ -5,6 +5,7 @@ import { ChartSkeleton } from "@/components/ui/chart-skeleton";
 import { prisma } from "@/lib/prisma";
 import { stopRoomScheduler } from "@/server/scheduler/crisis-scheduler";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { SocketInitButton } from "@/components/admin/socket-init-button";
 
 interface CloseRoomInput {
   roomId: string;
@@ -213,6 +214,23 @@ export default async function AdminPage() {
   const messagesLastHour = analyticsMessages.filter((message) => message.createdAt >= liveWindowStart).length;
   const messagesLastHourDisplay = numberFormatter.format(messagesLastHour);
 
+  const headerActions = [
+    {
+      key: "home",
+      label: "Accueil",
+      href: "/",
+      icon: "🏡",
+      variant: "ghost" as const,
+    },
+    {
+      key: "guide",
+      label: "Guide terrain",
+      href: "/landing",
+      icon: "🧭",
+      variant: "outline" as const,
+    },
+  ];
+
   return (
     <AdminShell active="dashboard">
       <header className="flex flex-col gap-6 rounded-3xl border border-base-200/70 bg-white/80 p-8 shadow-sm backdrop-blur">
@@ -224,19 +242,24 @@ export default async function AdminPage() {
               Vue consolidée des rooms, indicateurs d’engagement et derniers événements générés.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link href="/" className="btn btn-ghost gap-2">
-              <span aria-hidden>🏠</span>
-              Accueil
-            </Link>
-            <Link href="/landing" className="btn btn-outline gap-2">
-              <span aria-hidden>�</span>
-              Guide terrain
-            </Link>
-            <button type="button" className="btn btn-primary gap-2">
-              <span aria-hidden>➕</span>
-              Nouvelle room
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            {headerActions.map((action) => (
+              <Link
+                key={action.key}
+                href={action.href}
+                className={`btn btn-sm gap-2 shadow-sm ${action.variant === "ghost" ? "btn-ghost" : "btn-outline"}`}
+              >
+                <span aria-hidden className="text-base">
+                  {action.icon}
+                </span>
+                <span>{action.label}</span>
+              </Link>
+            ))}
+            <button type="button" className="btn btn-sm btn-primary gap-2 shadow-md">
+              <span aria-hidden className="text-base">➕</span>
+              <span>Nouvelle room</span>
             </button>
+            <SocketInitButton layout="inline" />
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3">

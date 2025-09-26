@@ -26,12 +26,18 @@ sqlite3 prisma/dev.db ".tables"
 - `src/app/(auth)/register/page.tsx` – route héritée qui renvoie désormais vers l’accueil public.
 - `src/app/profile/page.tsx` – information statique rappelant que la gestion de profil est suspendue.
 - `src/app/(public)/page.tsx` – page d'accueil avec formulaires `formateur` & `participant`.
-- `src/app/room/[code]/page.tsx` – maquette de salle de crise (chat, timeline, participants).
+- `src/app/room/[code]/page.tsx` – maquette de salle de crise (chat, timeline, participants, briefing formateur).
 - `src/app/admin/page.tsx` – panneau formateur expérimental (injection & scénarios).
 - `src/server/realtime/socket-server.ts` – squelette Socket.IO (à brancher sur le runtime Node).
 - `src/server/scheduler/crisis-scheduler.ts` – scheduler d'événements probabilistes (15–30 s).
 - `src/lib/prisma.ts` & `src/lib/env.ts` – helpers Prisma + validation des variables d'environnement.
 - `prisma/schema.prisma` – modèle `Room`, `Participant`, `Message`, `CrisisEvent` + enums associés.
+
+## 📍 Briefing formateur
+
+- Le modèle `Room` embarque désormais des champs optionnels pour contextualiser le scénario : `crisisType`, `incidentAt`, `locationName`, `addressLine`, `postalCode`, `city`, `country`, `latitude`, `longitude`.
+- Lorsqu’ils sont renseignés, l’en-tête de `/room/[code]` affiche automatiquement un briefing détaillé réservé aux formateurs (type d’incident, date/heure, adresse belge, carte OpenStreetMap centrée sur les coordonnées fournies).
+- Si aucune coordonnée n’est présente, un message incite à compléter les métadonnées pour enrichir la simulation.
 
 ## 📦 Scripts utiles
 

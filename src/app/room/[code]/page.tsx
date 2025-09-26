@@ -2,18 +2,18 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { RoomClient } from "@/components/room/room-client";
 
-type MaybePromise<T> = T | Promise<T>;
+type SearchParams = Record<string, string | string[] | undefined>;
 
 interface RoomPageProps {
-  params: MaybePromise<{ code: string }>;
-  searchParams: MaybePromise<Record<string, string | string[] | undefined>>;
+  params: Promise<{ code: string }>;
+  searchParams?: Promise<SearchParams>;
 }
 
 export const dynamic = "force-dynamic";
 
 export default async function RoomPage({ params, searchParams }: RoomPageProps) {
-  const resolvedParams = await Promise.resolve(params);
-  const resolvedSearchParams = await Promise.resolve(searchParams);
+  const resolvedParams = await params;
+  const resolvedSearchParams = (searchParams ? await searchParams : {}) as SearchParams;
 
   const code = resolvedParams.code.toUpperCase();
 
@@ -76,16 +76,32 @@ export default async function RoomPage({ params, searchParams }: RoomPageProps) 
     ackAt: event.ackAt ? event.ackAt.toISOString() : null,
   }));
 
+  const crisisContext = room
+    ? {
+        crisisType: room.crisisType ?? null,
+        incidentAt: room.incidentAt ? room.incidentAt.toISOString() : null,
+        locationName: room.locationName ?? null,
+        addressLine: room.addressLine ?? null,
+        postalCode: room.postalCode ?? null,
+        city: room.city ?? null,
+        country: room.country ?? null,
+        latitude: typeof room.latitude === "number" ? room.latitude : null,
+        longitude: typeof room.longitude === "number" ? room.longitude : null,
+        contextNotes: room.contextNotes ?? null,
+      }
+    : null;
+
   return (
     <RoomClient
       roomCode={code}
       displayName={displayName}
       isAdmin={isAdmin}
-      roomTitle={room?.title ?? `Salle ${code}`}
+      roomTitle={room?.title ?? null}
       roomExists={Boolean(room)}
       initialParticipants={initialParticipants}
       initialMessages={initialMessages}
       initialEvents={initialEvents}
+      crisisContext={crisisContext}
     />
   );
 }

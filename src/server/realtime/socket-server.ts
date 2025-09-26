@@ -41,6 +41,22 @@ export type ServerToClientEvents = {
       leftAt?: string | null;
     }>;
   }) => void;
+  "room:context:update": (payload: {
+    code: string;
+    title: string | null;
+    crisisContext: {
+      crisisType: string | null;
+      incidentAt: string | null;
+      locationName: string | null;
+      addressLine: string | null;
+      postalCode: string | null;
+      city: string | null;
+      country: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      contextNotes: string | null;
+    };
+  }) => void;
 };
 
 export type ClientToServerEvents = {

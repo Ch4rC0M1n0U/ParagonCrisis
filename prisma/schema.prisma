@@ -39,6 +39,16 @@ model Room {
   id            String         @id @default(cuid())
   code          String         @unique
   title         String?
+  crisisType    String?
+  incidentAt    DateTime?
+  locationName  String?
+  addressLine   String?
+  postalCode    String?
+  city          String?
+  country       String?        @default("Belgique")
+  latitude      Float?
+  longitude     Float?
+  contextNotes  String?
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt

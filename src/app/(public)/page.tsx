@@ -28,6 +28,8 @@ function formatRelativeTime(date: Date) {
   return formatter.format(Math.round(duration), "year");
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -128,7 +130,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-base-100 text-base-content" style={gradientStyle}>
-      <div className="mx-auto w-full max-w-6xl px-6 pb-24">
+  <div className="mx-auto w-full max-w-6xl md:max-w-[85vw] px-6 pb-24">
         <header className="py-12">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">

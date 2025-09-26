@@ -3,7 +3,7 @@ export const metadata = {
 };
 export default function ProfilePage() {
   return (
-    <section className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-16 text-base-content/80">
+  <section className="mx-auto flex w-full max-w-3xl md:max-w-[85vw] flex-col gap-6 px-6 py-16 text-base-content/80">
       <h1 className="text-4xl font-semibold text-neutral">Profils désactivés</h1>
       <p>
         L’espace profil personnel a été retiré dans la version actuelle de ParagonCrisis afin de proposer un accès
