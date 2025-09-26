@@ -30,6 +30,11 @@ enum EventSource {
   IMPORTED
 }
 
+enum UserRole {
+  FORMATEUR
+  UTILISATEUR
+}
+
 model Room {
   id            String         @id @default(cuid())
   code          String         @unique
@@ -90,4 +95,33 @@ model CrisisEvent {
 
   @@index([roomId, triggeredAt])
   @@index([severity])
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  service      String?
+  matricule    String    @unique
+  role         UserRole  @default(UTILISATEUR)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+
+  @@index([lastName])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }

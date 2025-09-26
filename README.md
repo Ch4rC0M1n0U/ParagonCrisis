@@ -22,6 +22,9 @@ sqlite3 prisma/dev.db ".tables"
 
 ## 📁 Structure principale
 
+- `src/app/(auth)/login/page.tsx` – route conservée pour compatibilité, redirige vers l’accueil (authentification désactivée).
+- `src/app/(auth)/register/page.tsx` – route héritée qui renvoie désormais vers l’accueil public.
+- `src/app/profile/page.tsx` – information statique rappelant que la gestion de profil est suspendue.
 - `src/app/(public)/page.tsx` – page d'accueil avec formulaires `formateur` & `participant`.
 - `src/app/room/[code]/page.tsx` – maquette de salle de crise (chat, timeline, participants).
 - `src/app/admin/page.tsx` – panneau formateur expérimental (injection & scénarios).
@@ -46,6 +49,14 @@ sqlite3 prisma/dev.db ".tables"
 - `RoomAccessForm` redirige vers `/room/{code}?name=...&admin=1` pour le formateur, `admin` absent pour participants.
 - Le scheduler (`startRoomScheduler`) émet des événements fictifs via EventEmitter ; branchez-le au socket et persistez dans Prisma.
 - Le panneau `/admin` permet de fermer une room active : l’action désactive la room, force la déconnexion des participants et coupe le scheduler associé.
+
+## � Accès public (authentification désactivée)
+
+- L’ensemble de la plateforme est désormais accessible sans création de compte : les routes `/login`, `/register` et `/forgot-password` redirigent immédiatement vers l’accueil.
+- Les formulaires `LoginForm`, `RegisterForm` et `ProfileForm` ont été conservés comme composants d’information (messages expliquant la désactivation).
+- Les actions serveur d’authentification (`src/lib/actions/auth.ts`) renvoient des stubs, garantissant qu’aucune session n’est créée et que toutes les commandes sensibles restent publiques.
+- La configuration Prisma conserve les tables `User` et `Session` afin de faciliter un éventuel retour en arrière, mais aucun code applicatif n’y accède.
+- Le panneau `/admin` est utilisable librement pour piloter les rooms ; `ADMIN_SECRET` reste recommandé si vous souhaitez réactiver une validation côté client des actions critiques.
 
 ## 🔐 Variables d'environnement
 

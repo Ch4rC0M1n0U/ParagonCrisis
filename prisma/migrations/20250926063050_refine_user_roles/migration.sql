@@ -1,0 +1,1 @@
+UPDATE "User" SET "role" = 'FORMATEUR' WHERE "role" = 'ADMIN';
